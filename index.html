@@ -27,24 +27,30 @@
 <script src="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.polyfilled.min.js"></script>
 
 <script>
-// ----------- GET URL PARAMETER -----------
 const urlParams = new URLSearchParams(window.location.search);
-const videoURL = urlParams.get("url");
+let inputURL = urlParams.get("url");
 
-// Extract YouTube VIDEO ID automatically
-function extractID(link){
-    return new URL(link).searchParams.get("v") ||           // normal youtube.com/watch?v=
-           link.split("youtu.be/")[1]?.split("?")[0] ||     // youtu.be/xxxx
-           link.split("/live/")[1]?.split("?")[0] || null;  // youtube live link
+function extractID(url){
+    if(!url) return null;
+    url = url.split("&")[0];            
+    url = url.split("?si=")[0];         
+    return new URL(url).searchParams.get("v") ||
+           url.split("youtu.be/")[1]?.split("?")[0] ||
+           url.split("/live/")[1]?.split("?")[0] ||
+           url.split("/shorts/")[1]?.split("?")[0] ||
+           null;
 }
 
-const videoID = extractID(videoURL);
+const videoID = extractID(inputURL);
 
-// ----------- LOAD PLAYER IF VALID -----------
 if(videoID){
-   const player = new Plyr('#player', {
-      autoplay: true,
-      muted: true,
+   document.querySelector("#player").setAttribute("data-plyr-provider","youtube");
+   document.querySelector("#player").setAttribute("data-plyr-embed-id",videoID);
+
+   new Plyr('#player',{
+      autoplay:true,
+      muted:true,
+      clickToPlay:false,
       controls:['play','progress','current-time','mute','volume','settings','pip','airplay','fullscreen'],
       youtube:{
          noCookie:true,
@@ -52,12 +58,8 @@ if(videoID){
       }
    });
 
-   // Inject player source dynamically
-   document.querySelector("#player").setAttribute("data-plyr-provider","youtube");
-   document.querySelector("#player").setAttribute("data-plyr-embed-id",videoID);
-
-} else {
-   document.body.innerHTML = "<h2 style='color:white;text-align:center;padding-top:30vh'>❗ URL Missing → use ?url=VIDEO_LINK</h2>";
+}else{
+   document.body.innerHTML="<h2 style='color:white;text-align:center;padding-top:30vh'>Use →  ?url=YOUTUBE_LINK</h2>";
 }
 </script>
 
