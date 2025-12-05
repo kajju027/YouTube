@@ -27,22 +27,24 @@
 <script src="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.polyfilled.min.js"></script>
 
 <script>
+// ----------- GET URL PARAMETER -----------
 const urlParams = new URLSearchParams(window.location.search);
 const videoURL = urlParams.get("url");
 
+// Extract YouTube VIDEO ID automatically
 function extractID(link){
-    return new URL(link).searchParams.get("v") ||
-           link.split("youtu.be/")[1]?.split("?")[0] ||
-           link.split("/live/")[1]?.split("?")[0] || null;
+    return new URL(link).searchParams.get("v") ||           // normal youtube.com/watch?v=
+           link.split("youtu.be/")[1]?.split("?")[0] ||     // youtu.be/xxxx
+           link.split("/live/")[1]?.split("?")[0] || null;  // youtube live link
 }
 
 const videoID = extractID(videoURL);
 
+// ----------- LOAD PLAYER IF VALID -----------
 if(videoID){
    const player = new Plyr('#player', {
       autoplay: true,
       muted: true,
-      clickToPlay: false,
       controls:['play','progress','current-time','mute','volume','settings','pip','airplay','fullscreen'],
       youtube:{
          noCookie:true,
@@ -50,11 +52,12 @@ if(videoID){
       }
    });
 
+   // Inject player source dynamically
    document.querySelector("#player").setAttribute("data-plyr-provider","youtube");
    document.querySelector("#player").setAttribute("data-plyr-embed-id",videoID);
 
 } else {
-   document.body.innerHTML = "<h2 style='color:white;text-align:center;padding-top:30vh'>URL Missing → use ?url=VIDEO_LINK</h2>";
+   document.body.innerHTML = "<h2 style='color:white;text-align:center;padding-top:30vh'>❗ URL Missing → use ?url=VIDEO_LINK</h2>";
 }
 </script>
 
