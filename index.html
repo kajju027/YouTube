@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css">
+
+<style>
+    html,body{
+        margin:0;
+        padding:0;
+        height:100%;
+        background:#000;
+        overflow:hidden;
+    }
+    #player{
+        width:100vw;
+        height:100vh;
+    }
+</style>
+</head>
+<body>
+
+<div id="player"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.polyfilled.min.js"></script>
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const videoURL = urlParams.get("url");
+
+function extractID(link){
+    return new URL(link).searchParams.get("v") ||
+           link.split("youtu.be/")[1]?.split("?")[0] ||
+           link.split("/live/")[1]?.split("?")[0] || null;
+}
+
+const videoID = extractID(videoURL);
+
+if(videoID){
+   const player = new Plyr('#player', {
+      autoplay: true,
+      muted: true,
+      clickToPlay: false,
+      controls:['play','progress','current-time','mute','volume','settings','pip','airplay','fullscreen'],
+      youtube:{
+         noCookie:true,
+         params:{ modestbranding:1, rel:0, iv_load_policy:3, playsinline:1 }
+      }
+   });
+
+   document.querySelector("#player").setAttribute("data-plyr-provider","youtube");
+   document.querySelector("#player").setAttribute("data-plyr-embed-id",videoID);
+
+} else {
+   document.body.innerHTML = "<h2 style='color:white;text-align:center;padding-top:30vh'>URL Missing → use ?url=VIDEO_LINK</h2>";
+}
+</script>
+
+</body>
+</html>
