@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PLYR</title>
+
+    <meta name="referrer" content="no-referrer" />
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+
+    <style>
+        /* --- CORE PLAYER STYLES --- */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; 
+            background-color: #000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+        }
+
+        .video-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .plyr {
+            width: 100%;
+            max-width: 100%;
+            height: 100%;
+            max-height: 100%;
+        }
+
+        /* --- THEME CUSTOMIZATION: #0078e8 (Blue) --- */
+        :root {
+            --plyr-color-main: #0078e8; 
+            --plyr-control-spacing: 12px;
+            --plyr-font-size-time: 14px;
+        }
+        
+        /* Custom Spinner Color */
+        .plyr--loading .plyr__spinner {
+            border-top-color: var(--plyr-color-main);
+            border-left-color: var(--plyr-color-main);
+            border-right-color: var(--plyr-color-main);
+        }
+
+        /* --- LOADING OVERLAY --- */
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            font-weight: 600;
+            z-index: 1000;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+        #loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .loading-spinner-custom {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid var(--plyr-color-main); 
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* --- ERROR/INFO OVERLAY --- */
+        .info-overlay {
+            color: #fff;
+            text-align: center;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 30px;
+            background-color: rgba(0, 0, 0, 0.9);
+            border-radius: 8px;
+            z-index: 999;
+            border: 1px solid #e30000;
+            box-shadow: 0 0 20px rgba(227, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="video-container" id="mainContent">
+        <div id="loading-overlay">
+            <div class="loading-spinner-custom"></div>
+            <span>Loading stream... Please wait.</span>
+        </div>
+        
+        <video id="player" playsinline muted controls></video>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
+
+    <script>
+        // --- CONSTANTS ---
+        const PLAYER_ID = 'player';
+        const URL_PARAM_KEY = 'ios';
+
+        // --- DOM ELEMENTS ---
+        const loadingOverlay = document.getElementById('loading-overlay');
+        
+        let playerInitialized = false;
+        let plyrInstance = null;
+        let hlsInstance = null;
+
+        // --- LOADER CONTROL ---
+        function hideLoading() {
+             loadingOverlay.classList.add('hidden');
+        }
+        
+        // --- UTILITY & ERROR DISPLAY ---
+        function getVideoUrlFromQuery() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const videoUrl = urlParams.get(URL_PARAM_KEY);
+            return videoUrl ? decodeURIComponent(videoUrl) : null;
+        }
+
+        function displayOverlay(title, message) {
+            hideLoading();
+            const container = document.querySelector('.video-container');
+            if (document.querySelector('.info-overlay')) return; 
+            container.innerHTML += `<div class="info-overlay"><h2>${title}</h2><p style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;">${message}</p></div>`;
+            if (plyrInstance) plyrInstance.destroy();
+        }
+
+        // --- Core Player Initialization ---
+        function initializePlayer() {
+            const videoUrl = getVideoUrlFromQuery();
+            const videoElement = document.getElementById(PLAYER_ID);
+
+            if (!videoUrl) {
+                displayOverlay("Configuration Error", "Missing video URL. Please provide a link in the query parameter: <code>?ios=YOUR_VIDEO_LINK</code>");
+                return;
+            }
+
+            // --- 1. Plyr Initialization ---
+            plyrInstance = new Plyr(videoElement, {
+                type: 'video', 
+                playsinline: true, 
+                muted: true, 
+                autoplay: true, 
+                loop: { active: false },
+                clickToPlay: true,
+                disableContextMenu: true, 
+                tooltips: { controls: true, seek: true }, 
+                keyboard: { focused: true, global: true }, 
+                
+                // CRITICAL: Ensure 'settings', 'quality', and 'speed' are in controls/settings
+                // Full control bar for HLS features
+                controls: ['play-large', 'play', 'current-time', 'duration', 'progress', 'mute', 'volume', 'settings', 'pip', 'fullscreen'],
+                settings: ['quality', 'speed', 'captions'], 
+            });
+
+            // --- 2. HLS Integration & Quality Switching ---
+            if (Hls.isSupported() && videoUrl.toLowerCase().endsWith('.m3u8')) {
+                hlsInstance = new Hls({
+                    crossOrigin: 'anonymous', 
+                    withCredentials: false, 
+                    liveSyncDurationCount: 3, 
+                    liveMaxLatencyDurationCount: 5, 
+                });
+
+                hlsInstance.loadSource(videoUrl);
+                hlsInstance.attachMedia(videoElement);
+                
+                // --- Quality Integration Logic ---
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+                    try {
+                        // Filter unique heights for Plyr compatibility and sort
+                        const availableQualities = [...new Set(data.levels.map(l=>l.height))].filter(Boolean).sort((a,b)=>a-b);
+                        const defaultQuality = availableQualities.find(q => q === 480) || 0; // Defaulting to 480p if available, else Auto (0)
+                        
+                        plyrInstance.config.quality = {
+                            default: defaultQuality,
+                            options: availableQualities,
+                            forced: true,
+                            onChange: (q) => {
+                                // 0 is for HLS Auto (level -1)
+                                if (q === 0) {
+                                    hlsInstance.currentLevel = -1; // Auto
+                                } else {
+                                    // Find the level index corresponding to the selected height
+                                    const levelIndex = data.levels.findIndex(level => level.height === q);
+                                    if (levelIndex !== -1) {
+                                        hlsInstance.currentLevel = levelIndex;
+                                    }
+                                }
+                            }
+                        };
+
+                        // Ensure Speed options are set
+                        plyrInstance.config.speed = {
+                            selected: 1,
+                            options: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
+                        };
+
+                        // Manually refresh settings menu to show new options
+                        if (plyrInstance.settings && plyrInstance.settings.active) {
+                            const settingsBtn = plyrInstance.elements.buttons.settings;
+                            if (settingsBtn) {
+                                settingsBtn.click();
+                                setTimeout(() => settingsBtn.click(), 50);
+                            }
+                        }
+                        
+                        // Start playing
+                        videoElement.play().catch(error => {
+                            console.log("Autoplay blocked/failed. User interaction required.");
+                        });
+                    } catch (e) {
+                        console.error("Error setting Plyr quality/config:", e);
+                    }
+                });
+
+                // --- HLS ERROR HANDLING ---
+                hlsInstance.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        hlsInstance.destroy();
+                        displayOverlay("Stream Error", `Playback failed: ${data.reason}. Please check the video link.`);
+                    }
+                });
+                
+            } else {
+                // Non-HLS (MP4/Other) Fallback
+                videoElement.src = videoUrl;
+                
+                videoElement.addEventListener('error', (e) => {
+                     displayOverlay("Media Error", "The video link failed to load or the format is unsupported.");
+                });
+                
+                plyrInstance.play();
+            }
+
+            // --- 3. Plyr General Events & Customizations ---
+            
+            // Hide custom loading overlay once playback starts or can play
+            plyrInstance.on('playing', hideLoading);
+            plyrInstance.on('canplay', hideLoading);
+
+            // Handle loading state
+            plyrInstance.on('waiting', () => {
+                loadingOverlay.classList.remove('hidden');
+            });
+
+
+            // --- Fullscreen Landscape Lock (Kept) ---
+            plyrInstance.on('enterfullscreen', () => {
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
+            });
+
+            plyrInstance.on('exitfullscreen', () => {
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock();
+                }
+            });
+        }
+
+        // Start player initialization immediately since the popup is removed
+        document.addEventListener('DOMContentLoaded', () => {
+            initializePlayer();
+        });
+
+    </script>
+
+</body>
+</html>
+
